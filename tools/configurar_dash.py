@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Configura as chaves do Surimaki Dash. Rode UMA vez no seu Mac:  python3 configurar_dash.py
+Para refazer SÓ a chave de renovação do Dropbox (sem mexer na senha do painel):  python3 configurar_dash.py token
 As chaves ficam só no seu computador e nos Secrets do GitHub (nunca passam pelo Claude).
 O que faz: gera a chave de renovação do Dropbox, cria uma senha forte para abrir o painel e grava as 4 chaves no repositório.
 Se o GitHub CLI (gh) estiver instalado e logado, grava sozinho; senão, copia cada valor para a área de transferência e você só cola."""
-import urllib.request, urllib.parse, urllib.error, json, getpass, base64, secrets, shutil, subprocess, webbrowser, re
+import urllib.request, urllib.parse, urllib.error, json, getpass, base64, secrets, shutil, subprocess, webbrowser, re, sys
 
 REPO = "surimakisushi/dash"
 ALFABETO = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # sem letras parecidas (l, I, 1, O, 0)
@@ -49,13 +50,16 @@ except urllib.error.HTTPError as e:
     raise SystemExit("O Dropbox recusou: " + e.read().decode()[:300] + "\nConfira a App key, o App secret e se o código é recente.")
 print("\nPermissões concedidas:", r.get("scope"))
 
-print("\nPASSO 3. Senha para abrir o painel (você vai digitá-la no celular).")
-print("   Aperte Enter para usar uma senha forte gerada agora, ou digite a sua (mínimo 12 caracteres).")
-digitada = getpass.getpass("Senha (opcional): ").strip()
-senha = digitada if len(digitada) >= 12 else "".join(secrets.choice(ALFABETO) for _ in range(14))
-if digitada and len(digitada) < 12: print("   Muito curta; usei uma senha gerada.")
+SO_TOKEN = len(sys.argv) > 1 and sys.argv[1] == "token"
+senha = None
+if not SO_TOKEN:
+    print("\nPASSO 3. Senha para abrir o painel (você vai digitá-la no celular).")
+    print("   Aperte Enter para usar uma senha forte gerada agora, ou digite a sua (mínimo 12 caracteres).")
+    digitada = getpass.getpass("Senha (opcional): ").strip()
+    senha = digitada if len(digitada) >= 12 else "".join(secrets.choice(ALFABETO) for _ in range(14))
+    if digitada and len(digitada) < 12: print("   Muito curta; usei uma senha gerada.")
 
-valores = [("DROPBOX_APP_KEY", key), ("DROPBOX_APP_SECRET", secret), ("DROPBOX_REFRESH_TOKEN", r["refresh_token"]), ("DASH_PASSWORD", senha)]
+valores = [("DROPBOX_REFRESH_TOKEN", r["refresh_token"])] if SO_TOKEN else [("DROPBOX_APP_KEY", key), ("DROPBOX_APP_SECRET", secret), ("DROPBOX_REFRESH_TOKEN", r["refresh_token"]), ("DASH_PASSWORD", senha)]
 print("\nPASSO 4. Gravando as chaves no repositório " + REPO + " ...")
 if gh_pronto():
     for nome, valor in valores:
@@ -71,9 +75,10 @@ else:
         input("  Quando salvar, aperte Enter para o próximo... ")
         print()
 
-print("=" * 60)
-print("SENHA DO PAINEL (anote em lugar seguro): " + senha)
-print("=" * 60)
+if senha:
+    print("=" * 60)
+    print("SENHA DO PAINEL (anote em lugar seguro): " + senha)
+    print("=" * 60)
 print("\nPronto. Próximo passo: no GitHub, Settings > Pages > Source: 'GitHub Actions'.")
 print("Depois rode: https://github.com/" + REPO + "/actions  ->  Atualizar Surimaki Dash  ->  Run workflow")
 copiar("")  # limpa a área de transferência
