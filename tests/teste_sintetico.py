@@ -48,7 +48,7 @@ wb.save(os.path.join(ca, "5-extatos_pagbank", "26_11_05_PagSeguro.xlsx"))
 
 json.dump([{"chave": "2026-11-05|FULANO SEM LANCAMENTO|777.77", "motivo": "teste de item aceito"}], open(os.path.join(ca, "7_dashboard", "conciliacao_aceitos.json"), "w"))
 
-env = dict(os.environ, DASH_WORK=work, DASH_OUT=out, DASH_SITE=site, DASH_PASSWORD="senha-de-teste-123", CONCIL_DESDE="2026-11-01")
+env = dict(os.environ, DASH_WORK=work, DASH_OUT=out, DASH_SITE=site, DASH_PASSWORD="senha-de-teste-123", CONCIL_DESDE="2026-11-01", DASH_VERBOSE="1")
 def roda(*args):
     r = subprocess.run([sys.executable, *args], capture_output=True, text=True, env=env, cwd=REPO)
     print(r.stdout.strip());

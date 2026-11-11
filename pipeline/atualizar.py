@@ -8,11 +8,14 @@ HERE = os.path.dirname(os.path.abspath(__file__)); OUT = config.OUT
 cands = sorted(glob.glob(os.path.join(config.RAIZ, "_DLP_*.xlsx")), key=os.path.getmtime)
 if not cands: sys.exit("DLP não encontrada em " + config.RAIZ + " (o sync_dropbox.py rodou?)")
 dlp = cands[-1]
+# O log do GitHub Actions é público: sem valores financeiros no log (DASH_VERBOSE=1 só para teste local).
+VERBOSE = os.environ.get("DASH_VERBOSE") == "1"
 print("DLP:", os.path.basename(dlp), "| modificada em", datetime.datetime.fromtimestamp(os.path.getmtime(dlp)).strftime("%d/%m/%Y %H:%M"))
 for cmd in (["dlp_extract.py", dlp], ["pdv_ler.py"], ["conciliar.py"]):
     r = subprocess.run([sys.executable, os.path.join(HERE, cmd[0])] + cmd[1:], capture_output=True, text=True)
-    print(r.stdout.strip()[:1500])
-    if r.returncode: sys.exit(r.stderr[-1500:] or ("falhou: " + cmd[0]))
+    if VERBOSE: print(r.stdout.strip()[:1500])
+    else: print("  ok:", cmd[0] if not r.returncode else "FALHOU " + cmd[0])
+    if r.returncode: sys.exit(("erro em " + cmd[0] + ": " + r.stderr.strip().splitlines()[-1][:200]) if r.stderr.strip() else ("falhou: " + cmd[0]))
 # junta os alertas do PDV, aplica "aceitos" e o corte DESDE
 al = json.load(open(os.path.join(OUT, "alertas.json")))
 aceitos = {}
@@ -24,4 +27,4 @@ for i, a in enumerate(json.load(open(os.path.join(OUT, "pdv_alertas.json"))), 1)
     a["status"] = "aceito" if a["chave"] in aceitos else "aberto"; a["motivo"] = aceitos.get(a["chave"], ""); al.append(a)
 json.dump(al, open(os.path.join(OUT, "alertas.json"), "w"), ensure_ascii=False)
 ab = [a for a in al if a["status"] == "aberto"]
-print(f"ALERTAS: {len(ab)} abertos ({sum(a['gravidade']=='alta' for a in ab)} altos, {sum(a['gravidade']=='media' for a in ab)} médios, {sum(a['gravidade']=='baixa' for a in ab)} baixos), {len(al)-len(ab)} aceitos")
+if VERBOSE: print(f"ALERTAS: {len(ab)} abertos ({sum(a['gravidade']=='alta' for a in ab)} altos, {sum(a['gravidade']=='media' for a in ab)} médios, {sum(a['gravidade']=='baixa' for a in ab)} baixos), {len(al)-len(ab)} aceitos")
