@@ -28,6 +28,18 @@ for i, a in enumerate(json.load(open(os.path.join(OUT, "pdv_alertas.json"))), 1)
 # regras por nome (conciliacao_regras.json): "extrato sem lançamento na DLP" para quem bate com a regra vira "aceito" com o motivo da regra
 def norm(t): return "".join(c for c in unicodedata.normalize("NFD", str(t).upper()) if unicodedata.category(c) != "Mn")
 regras = json.load(open(config.REGRAS)) if os.path.exists(config.REGRAS) else []
+# explicações digitadas no app: valem pela chave do alerta (data|item|valor); com "sempre", viram regra por favorecido
+notas = {}
+for f in sorted(glob.glob(os.path.join(config.NOTAS, "*.json"))):
+    try: n = json.load(open(f))
+    except Exception: continue
+    if not n.get("chave") or not n.get("motivo"): continue
+    dia = str(n.get("criado_em", ""))[:10]
+    mot = n["motivo"].strip() + (f" (explicado no app, {dia[8:10]}/{dia[5:7]})" if len(dia) == 10 else " (explicado no app)")
+    notas[n["chave"]] = mot
+    if n.get("sempre") and n.get("item"): regras.append({"contem": n["item"], "motivo": mot})
+for a in al:
+    if a["status"] == "aberto" and a.get("chave") in notas: a["status"] = "aceito"; a["motivo"] = notas[a["chave"]]
 for a in al:
     if a["status"] != "aberto" or a["tipo"] != "No extrato, sem lançamento na DLP": continue
     for rg in regras:

@@ -22,3 +22,5 @@ ACEITOS = os.path.join(CA, "7_dashboard", "conciliacao_aceitos.json")
 REGRAS = os.path.join(CA, "7_dashboard", "conciliacao_regras.json")   # regras por nome (ex.: retirada de pró-labore), valem para qualquer data
 
 os.makedirs(OUT, exist_ok=True)
+
+NOTAS = os.path.join(WORK, "notas")   # explicações digitadas no app (uma por arquivo .json), baixadas da pasta do app de notas

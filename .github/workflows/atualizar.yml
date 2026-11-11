@@ -2,7 +2,7 @@ name: Atualizar Surimaki Dash
 
 on:
   schedule:
-    - cron: "10 */3 * * *"   # a cada 3 horas (horário UTC)
+    - cron: "10 * * * *"   # a cada hora
   workflow_dispatch:          # botão "Run workflow" na aba Actions
 
 permissions:
@@ -37,6 +37,8 @@ jobs:
           DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
           DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
           DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+          DROPBOX_NOTAS_APP_KEY: ${{ secrets.DROPBOX_NOTAS_APP_KEY }}
+          DROPBOX_NOTAS_REFRESH_TOKEN: ${{ secrets.DROPBOX_NOTAS_REFRESH_TOKEN }}
         run: python pipeline/sync_dropbox.py
 
       - name: Ler DLP, conciliar e gerar alertas
@@ -45,6 +47,8 @@ jobs:
       - name: Criptografar e montar o site
         env:
           DASH_PASSWORD: ${{ secrets.DASH_PASSWORD }}
+          DROPBOX_NOTAS_APP_KEY: ${{ secrets.DROPBOX_NOTAS_APP_KEY }}
+          DROPBOX_NOTAS_REFRESH_TOKEN: ${{ secrets.DROPBOX_NOTAS_REFRESH_TOKEN }}
         run: python pipeline/publicar.py
 
       - name: Apagar dados em claro do servidor

@@ -6,7 +6,8 @@ O que baixa:
   - extratos Itaú (.xlsx) de 5_extratos_Itau_banco e o histórico em _ADM/Extratos e comprovantes pix - Itau
   - extratos PagBank (.xlsx) de 5-extatos_pagbank
   - relatórios 'faturamento*.xls' do PDV (3_Saidas_Chefsolution_PDV/AAAA_MM)
-  - conciliacao_aceitos.json (itens que o dono já explicou)
+  - conciliacao_aceitos.json (itens que o dono já explicou) e conciliacao_regras.json (regras por nome)
+  - /notas do app de notas (explicações digitadas no painel), se DROPBOX_NOTAS_APP_KEY e DROPBOX_NOTAS_REFRESH_TOKEN existirem
 A data de modificação local de cada arquivo é a do Dropbox, porque os leitores escolhem o extrato "mais novo" por essa data.
 
 Variáveis de ambiente (vêm dos Secrets do GitHub): DROPBOX_APP_KEY, DROPBOX_APP_SECRET, DROPBOX_REFRESH_TOKEN.
@@ -68,6 +69,25 @@ def so_arquivos(entries): return [e for e in entries if isinstance(e, files.File
 def so_pastas(entries): return [e for e in entries if isinstance(e, files.FolderMetadata)]
 
 
+def baixar_notas(so_listar):
+    k, t = os.environ.get("DROPBOX_NOTAS_APP_KEY"), os.environ.get("DROPBOX_NOTAS_REFRESH_TOKEN")
+    if not (k and t): print("Notas do app: não configuradas (pulado)"); return
+    print("Notas do app:")
+    try:
+        nd = dropbox.Dropbox(oauth2_refresh_token=t, app_key=k, timeout=120)   # fluxo PKCE: sem app secret
+        r = nd.files_list_folder("/notas")
+        entradas = list(r.entries)
+        while r.has_more:
+            r = nd.files_list_folder_continue(r.cursor); entradas += r.entries
+    except ApiError as e:
+        print("  nenhuma nota ainda (", str(e)[:80], ")"); return
+    except Exception as e:
+        print("  aviso: não consegui ler as notas -", str(e)[:150]); return
+    for f in so_arquivos(entradas):
+        if f.name.endswith(".json") and not so_listar: baixar(nd, f, os.path.join(config.NOTAS, f.name), False)
+    print("  notas baixadas:", len([f for f in so_arquivos(entradas) if f.name.endswith(".json")]))
+
+
 def main():
     so_listar = "--check" in sys.argv
     dbx, P = escolher_modo(conectar())
@@ -98,6 +118,8 @@ def main():
     for f in so_arquivos(listar(dbx, P(config.DBX_CA + "/7_dashboard"))):
         if f.name == "conciliacao_aceitos.json": baixar(dbx, f, config.ACEITOS, so_listar)
         if f.name == "conciliacao_regras.json": baixar(dbx, f, config.REGRAS, so_listar)
+    # 5) explicações digitadas no app (pasta do segundo app do Dropbox, que só enxerga essa pasta). Opcional.
+    baixar_notas(so_listar)
     print("Sincronização concluída" + (" (somente listagem)" if so_listar else ""))
 
 

@@ -106,6 +106,14 @@ section>h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:va
 .alert .val{font-weight:650;white-space:nowrap}
 .alert .d{color:var(--muted);font-size:13px;margin-top:3px}
 .alert .a{font-size:13px;margin-top:5px;color:var(--gold)}
+.exp{margin-top:8px;background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:999px;padding:5px 14px;font-size:13px;cursor:pointer}
+.fx{margin-top:8px;display:none}
+.fx.on{display:block}
+.fx textarea{width:100%;min-height:64px;background:#0d0d0f;border:1px solid var(--line);border-radius:10px;color:inherit;padding:8px 10px;font:inherit;font-size:14px;resize:vertical}
+.fx label{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin:6px 0}
+.fx .salvar{background:var(--gold);color:#111;border:0;border-radius:10px;padding:9px 16px;font-weight:600;font-size:14px;cursor:pointer}
+.fx .salvar:disabled{opacity:.5}
+.fx .msg{font-size:13px;margin-top:6px;color:var(--red)}
 .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-right:6px}
 .vazio{color:var(--muted);text-align:center;padding:18px}
 
@@ -194,6 +202,9 @@ const store = {
 let D = null;            // dados abertos
 let senhaAtual = null;
 let mesSel = null, filtroAlerta = "abertos";
+let pend = {};           // explicações já enviadas deste aparelho, esperando o próximo ciclo do robô
+try { pend = JSON.parse(store.get("sd_pend") || "{}") || {}; } catch (e) { pend = {}; }
+let tokNotas = null;
 
 /* ---------- criptografia (AES-GCM, chave PBKDF2) ---------- */
 const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -339,7 +350,11 @@ function mix(dias){
 /* ---------- alertas ---------- */
 function alertas(){
   const todos = D.alertas || [];
-  const ab = todos.filter((a) => a.status === "aberto"), ac = todos.filter((a) => a.status !== "aberto");
+  // limpa explicações pendentes que o robô já incorporou
+  const abertosAgora = new Set(todos.filter((a) => a.status === "aberto").map((a) => a.chave));
+  let mudou = false; Object.keys(pend).forEach((k) => { if (!abertosAgora.has(k)) { delete pend[k]; mudou = true; } });
+  if (mudou) store.set("sd_pend", JSON.stringify(pend));
+  const ab = todos.filter((a) => a.status === "aberto" && !pend[a.chave]), ac = todos.filter((a) => a.status !== "aberto" || pend[a.chave]);
   const cont = (g) => ab.filter((a) => a.gravidade === g).length;
   const fil = [["abertos", "Abertos (" + ab.length + ")"], ["alta", "Altos (" + cont("alta") + ")"], ["media", "Médios (" + cont("media") + ")"], ["baixa", "Baixos (" + cont("baixa") + ")"], ["aceitos", "Aceitos (" + ac.length + ")"]];
   $("f-alertas").innerHTML = fil.map(([k, t]) => '<button class="chip" data-f="' + k + '" aria-pressed="' + (k === filtroAlerta) + '">' + t + '</button>').join("");
@@ -347,13 +362,55 @@ function alertas(){
   let lista = filtroAlerta === "aceitos" ? ac : filtroAlerta === "abertos" ? ab : ab.filter((a) => a.gravidade === filtroAlerta);
   const peso = {alta:0, media:1, baixa:2};
   lista = lista.slice().sort((a, b) => (peso[a.gravidade] - peso[b.gravidade]) || (b.data > a.data ? 1 : -1));
+  const podeExplicar = !!(D.notas && D.notas.refresh_token);
   $("alertas").innerHTML = lista.length ? lista.map((a) => {
     const dif = a.diferenca, sinal = dif > 0 ? "+" : "";
-    return '<div class="alert ' + esc(a.gravidade) + (a.status === "aberto" ? "" : " aceito") + '"><div class="h"><div class="tipo">' + esc(a.tipo) + '</div><div class="val num">' + sinal + BRL.format(dif) + '</div></div>' +
-      '<div class="d"><span class="tag">' + esc(dm(a.data)) + '</span>' + esc(a.item) + '</div><div class="d">' + esc(a.descricao) + '</div>' +
-      (a.status === "aberto" ? '<div class="a">→ ' + esc(a.acao) + '</div>' : '<div class="a">Explicado: ' + esc(a.motivo) + '</div>') + '</div>';
+    const aberto = a.status === "aberto" && !pend[a.chave];
+    let rodape;
+    if (aberto) {
+      rodape = '<div class="a">→ ' + esc(a.acao) + '</div>';
+      if (podeExplicar) rodape += '<button class="exp" data-k="' + esc(a.chave) + '">Explicar</button>' +
+        '<div class="fx" data-k="' + esc(a.chave) + '"><textarea placeholder="O que é este lançamento? Ex.: retirada de pró-labore"></textarea>' +
+        (a.tipo === "No extrato, sem lançamento na DLP" ? '<label><input type="checkbox" class="sempre"> Vale sempre para este favorecido</label>' : '') +
+        '<button class="salvar">Salvar explicação</button><div class="msg"></div></div>';
+    } else if (a.status !== "aberto") rodape = '<div class="a">Explicado: ' + esc(a.motivo) + '</div>';
+    else rodape = '<div class="a">Explicação enviada: ' + esc(pend[a.chave]) + ' (entra no painel na próxima atualização)</div>';
+    return '<div class="alert ' + esc(a.gravidade) + (aberto ? "" : " aceito") + '"><div class="h"><div class="tipo">' + esc(a.tipo) + '</div><div class="val num">' + sinal + BRL.format(dif) + '</div></div>' +
+      '<div class="d"><span class="tag">' + esc(dm(a.data)) + '</span>' + esc(a.item) + '</div><div class="d">' + esc(a.descricao) + '</div>' + rodape + '</div>';
   }).join("") : '<div class="vazio">Nenhum alerta aqui. 🎉</div>';
 }
+
+/* ---------- explicar um alerta (grava uma nota na pasta do app de notas no Dropbox) ---------- */
+async function tokenNotas(){
+  if (tokNotas && tokNotas.exp > Date.now() + 60000) return tokNotas.t;
+  const r = await fetch("https://api.dropboxapi.com/oauth2/token", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({grant_type:"refresh_token", refresh_token:D.notas.refresh_token, client_id:D.notas.app_key})});
+  if (!r.ok) throw new Error("o Dropbox recusou o acesso às notas (" + r.status + ")");
+  const j = await r.json(); tokNotas = {t:j.access_token, exp:Date.now() + (j.expires_in || 14400) * 1000}; return tokNotas.t;
+}
+async function enviarNota(nota){
+  const t = await tokenNotas();
+  const nome = "/notas/nota_" + new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14) + "_" + Math.random().toString(36).slice(2, 8) + ".json";
+  const r = await fetch("https://content.dropboxapi.com/2/files/upload", {method:"POST",
+    headers:{"Authorization":"Bearer " + t, "Dropbox-API-Arg":JSON.stringify({path:nome, mode:"add", autorename:true, mute:true}), "Content-Type":"application/octet-stream"},
+    body:new Blob([JSON.stringify(nota)], {type:"application/octet-stream"})});
+  if (!r.ok) throw new Error("não consegui gravar a nota (" + r.status + ")");
+}
+$("alertas").addEventListener("click", async (e) => {
+  const exp = e.target.closest(".exp");
+  if (exp) { const fx = exp.parentElement.querySelector(".fx"); fx.classList.toggle("on"); if (fx.classList.contains("on")) fx.querySelector("textarea").focus(); return; }
+  const sv = e.target.closest(".salvar"); if (!sv) return;
+  const fx = sv.closest(".fx"), chave = fx.dataset.k, a = (D.alertas || []).find((x) => x.chave === chave), msg = fx.querySelector(".msg");
+  const motivo = fx.querySelector("textarea").value.trim();
+  if (!a) return;
+  if (motivo.length < 3) { msg.textContent = "Escreva o motivo."; return; }
+  sv.disabled = true; sv.textContent = "Salvando…"; msg.textContent = "";
+  try {
+    const sempre = !!(fx.querySelector(".sempre") && fx.querySelector(".sempre").checked);
+    await enviarNota({v:1, criado_em:new Date().toISOString(), chave:a.chave, item:a.item, data:a.data, valor:a.diferenca, tipo:a.tipo, motivo, sempre});
+    pend[a.chave] = motivo; store.set("sd_pend", JSON.stringify(pend)); alertas();
+  } catch (err) { msg.textContent = "Falhou: " + (err && err.message || err); sv.disabled = false; sv.textContent = "Salvar explicação"; }
+});
 
 /* ---------- tabelas e rankings ---------- */
 function pdv(){

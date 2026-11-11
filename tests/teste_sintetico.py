@@ -47,7 +47,9 @@ ws.append(["03/11/2026", "Saldo do dia", "R$ 1.950,06", None, None, "R$ 1.950,06
 wb.save(os.path.join(ca, "5-extatos_pagbank", "26_11_05_PagSeguro.xlsx"))
 
 json.dump([], open(os.path.join(ca, "7_dashboard", "conciliacao_aceitos.json"), "w"))
-json.dump([{"contem": "fulano sem lançamento", "motivo": "teste de regra por nome"}], open(os.path.join(ca, "7_dashboard", "conciliacao_regras.json"), "w"))
+os.makedirs(os.path.join(work, "notas"))
+json.dump({"chave": "2026-11-05|FULANO SEM LANCAMENTO|777.77", "motivo": "teste de nota", "criado_em": "2026-11-11T12:00:00Z"}, open(os.path.join(work, "notas", "nota_x.json"), "w"))
+json.dump([{"contem": "ninguem", "motivo": "regra que não bate"}], open(os.path.join(ca, "7_dashboard", "conciliacao_regras.json"), "w"))
 
 env = dict(os.environ, DASH_WORK=work, DASH_OUT=out, DASH_SITE=site, DASH_PASSWORD="senha-de-teste-123", CONCIL_DESDE="2026-11-01", DASH_VERBOSE="1")
 def roda(*args):
@@ -63,7 +65,7 @@ assert st["pagbank_ate"] == "2026-11-03", st
 al = json.load(open(os.path.join(out, "alertas.json")))
 aberto = [a for a in al if a["status"] == "aberto"]; aceito = [a for a in al if a["status"] == "aceito"]
 print("abertos:", [(a["tipo"], a["item"], a["diferenca"]) for a in aberto]); print("aceitos:", [(a["tipo"], a["item"]) for a in aceito])
-assert any("FULANO" in a["item"] for a in aceito), "o item aceito deveria sair dos abertos"
+assert any("FULANO" in a["item"] and "explicado no app" in a["motivo"] for a in aceito), "a nota do app deveria aceitar o item"
 assert not any("NORDSEE" in a["item"].upper() for a in aberto), "Nordsee 500 deveria conciliar"
 assert os.path.exists(os.path.join(site, "data.enc.json"))
 print("OK: pipeline sintético passou. Pacote em", os.path.join(site, "data.enc.json"))

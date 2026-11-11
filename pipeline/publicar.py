@@ -24,6 +24,8 @@ def main():
         p = os.path.join(config.OUT, d + ".json")
         if not os.path.exists(p): sys.exit("Falta " + p + " (o atualizar.py rodou?)")
         pacote[d] = json.load(open(p))
+    k, t = os.environ.get("DROPBOX_NOTAS_APP_KEY"), os.environ.get("DROPBOX_NOTAS_REFRESH_TOKEN")
+    if k and t: pacote["notas"] = {"app_key": k, "refresh_token": t}   # só dentro do pacote criptografado; o app só enxerga a pasta de notas
     pacote["gerado_em_utc"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     claro = json.dumps(pacote, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     sal, iv = secrets.token_bytes(16), secrets.token_bytes(12)
