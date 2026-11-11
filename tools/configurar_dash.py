@@ -3,7 +3,7 @@
 As chaves ficam só no seu computador e nos Secrets do GitHub (nunca passam pelo Claude).
 O que faz: gera a chave de renovação do Dropbox, cria uma senha forte para abrir o painel e grava as 4 chaves no repositório.
 Se o GitHub CLI (gh) estiver instalado e logado, grava sozinho; senão, copia cada valor para a área de transferência e você só cola."""
-import urllib.request, urllib.parse, urllib.error, json, getpass, base64, secrets, shutil, subprocess
+import urllib.request, urllib.parse, urllib.error, json, getpass, base64, secrets, shutil, subprocess, webbrowser
 
 REPO = "surimakisushi/dash"
 ALFABETO = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # sem letras parecidas (l, I, 1, O, 0)
@@ -27,7 +27,10 @@ key = input("App key (aba Settings do app): ").strip()
 secret = getpass.getpass("App secret (não aparece ao digitar): ").strip()
 
 url = "https://www.dropbox.com/oauth2/authorize?" + urllib.parse.urlencode({"client_id": key, "response_type": "code", "token_access_type": "offline"})
-print("\nPASSO 2. Abra este endereço no navegador, entre na conta do Dropbox da Temakeria e clique em Permitir:\n\n" + url + "\n")
+print("\nPASSO 2. Vou abrir o Dropbox no navegador. Clique em Permitir (entre na conta da Temakeria, se pedir).")
+print("   Se a página não abrir sozinha, use este endereço:\n\n" + url + "\n")
+try: webbrowser.open(url)
+except Exception: pass
 codigo = input("Cole aqui o código que o Dropbox mostrar: ").strip()
 req = urllib.request.Request("https://api.dropboxapi.com/oauth2/token", data=urllib.parse.urlencode({"code": codigo, "grant_type": "authorization_code"}).encode())
 req.add_header("Authorization", "Basic " + base64.b64encode(f"{key}:{secret}".encode()).decode())
