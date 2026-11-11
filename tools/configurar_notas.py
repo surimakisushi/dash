@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Configura o app de NOTAS do Surimaki Dash (botão "Explicar" no painel). Rode UMA vez no seu Mac:  python3 configurar_notas.py
+Para refazer SÓ a chave de acesso (DROPBOX_NOTAS_REFRESH_TOKEN):  python3 configurar_notas.py token
 O app de notas é um segundo app do Dropbox, do tipo "App folder": ele só enxerga a pasta Apps/<nome do app> e nada mais do seu Dropbox.
 Este script gera a chave de acesso dele (fluxo PKCE, sem App secret) e grava 2 chaves nos Secrets do GitHub:
   DROPBOX_NOTAS_APP_KEY e DROPBOX_NOTAS_REFRESH_TOKEN
 As chaves ficam só no seu computador e nos Secrets do GitHub (nunca passam pelo Claude)."""
-import urllib.request, urllib.parse, urllib.error, json, hashlib, base64, secrets, shutil, subprocess, webbrowser, re
+import urllib.request, urllib.parse, urllib.error, json, hashlib, base64, secrets, shutil, subprocess, webbrowser, re, sys
 
 REPO = "surimakisushi/dash"
 
@@ -47,7 +48,7 @@ print("\nPermissões concedidas:", r.get("scope"))
 if "files.content.write" not in (r.get("scope") or ""):
     raise SystemExit("Faltou a permissão files.content.write. Marque-a na aba Permissions, clique em Submit e rode este script de novo.")
 
-valores = [("DROPBOX_NOTAS_APP_KEY", key), ("DROPBOX_NOTAS_REFRESH_TOKEN", r["refresh_token"])]
+valores = [("DROPBOX_NOTAS_REFRESH_TOKEN", r["refresh_token"])] if (len(sys.argv) > 1 and sys.argv[1] == "token") else [("DROPBOX_NOTAS_APP_KEY", key), ("DROPBOX_NOTAS_REFRESH_TOKEN", r["refresh_token"])]
 print("\nGravando as chaves no repositório " + REPO + " ...")
 if gh_pronto():
     for nome, valor in valores:
