@@ -19,5 +19,6 @@ PASTA_PAGBANK = os.path.join(CA, "5-extatos_pagbank")
 PASTA_PDV = os.path.join(CA, "3_Saidas_Chefsolution_PDV")
 PASTA_HIST = os.path.join(RAIZ, "_ADM", "Extratos e comprovantes pix - Itau")
 ACEITOS = os.path.join(CA, "7_dashboard", "conciliacao_aceitos.json")
+REGRAS = os.path.join(CA, "7_dashboard", "conciliacao_regras.json")   # regras por nome (ex.: retirada de pró-labore), valem para qualquer data
 
 os.makedirs(OUT, exist_ok=True)

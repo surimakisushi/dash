@@ -97,6 +97,7 @@ def main():
     print("Itens aceitos:")
     for f in so_arquivos(listar(dbx, P(config.DBX_CA + "/7_dashboard"))):
         if f.name == "conciliacao_aceitos.json": baixar(dbx, f, config.ACEITOS, so_listar)
+        if f.name == "conciliacao_regras.json": baixar(dbx, f, config.REGRAS, so_listar)
     print("Sincronização concluída" + (" (somente listagem)" if so_listar else ""))
 
 

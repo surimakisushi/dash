@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Atualização completa na nuvem: DLP -> PDV x DLP -> extrato x DLP -> alertas. Grava tudo em out/.
 Pré-requisito: pipeline/sync_dropbox.py já rodou (os arquivos estão em work/). Uso: python pipeline/atualizar.py"""
-import os, sys, glob, subprocess, json, datetime
+import os, sys, glob, subprocess, json, datetime, unicodedata
 import config
 HERE = os.path.dirname(os.path.abspath(__file__)); OUT = config.OUT
 
@@ -25,6 +25,14 @@ for i, a in enumerate(json.load(open(os.path.join(OUT, "pdv_alertas.json"))), 1)
     if a["mes"] < desde: continue
     a = dict(a, id=f"P{i:04d}"); a["chave"] = f'{a["data"]}|{a["item"]}|{abs(a["diferenca"]):.2f}'
     a["status"] = "aceito" if a["chave"] in aceitos else "aberto"; a["motivo"] = aceitos.get(a["chave"], ""); al.append(a)
+# regras por nome (conciliacao_regras.json): "extrato sem lançamento na DLP" para quem bate com a regra vira "aceito" com o motivo da regra
+def norm(t): return "".join(c for c in unicodedata.normalize("NFD", str(t).upper()) if unicodedata.category(c) != "Mn")
+regras = json.load(open(config.REGRAS)) if os.path.exists(config.REGRAS) else []
+for a in al:
+    if a["status"] != "aberto" or a["tipo"] != "No extrato, sem lançamento na DLP": continue
+    for rg in regras:
+        if norm(rg["contem"]) in norm(a["item"]) + " " + norm(a.get("descricao", "")):
+            a["status"] = "aceito"; a["motivo"] = rg.get("motivo", "Explicado pelo dono (regra)"); break
 json.dump(al, open(os.path.join(OUT, "alertas.json"), "w"), ensure_ascii=False)
 ab = [a for a in al if a["status"] == "aberto"]
 if VERBOSE: print(f"ALERTAS: {len(ab)} abertos ({sum(a['gravidade']=='alta' for a in ab)} altos, {sum(a['gravidade']=='media' for a in ab)} médios, {sum(a['gravidade']=='baixa' for a in ab)} baixos), {len(al)-len(ab)} aceitos")

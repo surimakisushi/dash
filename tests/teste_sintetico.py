@@ -46,7 +46,8 @@ ws.append(["03/11/2026", "Pix enviado", "Lanchonete Bar E Temakeria Moema Ltda",
 ws.append(["03/11/2026", "Saldo do dia", "R$ 1.950,06", None, None, "R$ 1.950,06"])
 wb.save(os.path.join(ca, "5-extatos_pagbank", "26_11_05_PagSeguro.xlsx"))
 
-json.dump([{"chave": "2026-11-05|FULANO SEM LANCAMENTO|777.77", "motivo": "teste de item aceito"}], open(os.path.join(ca, "7_dashboard", "conciliacao_aceitos.json"), "w"))
+json.dump([], open(os.path.join(ca, "7_dashboard", "conciliacao_aceitos.json"), "w"))
+json.dump([{"contem": "fulano sem lançamento", "motivo": "teste de regra por nome"}], open(os.path.join(ca, "7_dashboard", "conciliacao_regras.json"), "w"))
 
 env = dict(os.environ, DASH_WORK=work, DASH_OUT=out, DASH_SITE=site, DASH_PASSWORD="senha-de-teste-123", CONCIL_DESDE="2026-11-01", DASH_VERBOSE="1")
 def roda(*args):
