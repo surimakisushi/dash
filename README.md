@@ -22,7 +22,7 @@ site/  (GitHub Pages)      página que pede a senha e abre os dados no próprio 
 ## Configuração (uma vez)
 
 1. **Secrets** em *Settings → Secrets and variables → Actions*:
-   - `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` (gerados com `tools/obter_token_dropbox.py`)
+   - `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` (gerados com `tools/configurar_dash.py`)
    - `DASH_PASSWORD` (senha de abrir o painel, mínimo 8 caracteres; use uma senha forte)
 2. **Pages** em *Settings → Pages*: em *Source* escolha **GitHub Actions**.
    Atenção: GitHub Pages em repositório **privado** exige plano pago (GitHub Pro). A página publicada é pública pelo endereço, e é por isso que os dados vão criptografados.
