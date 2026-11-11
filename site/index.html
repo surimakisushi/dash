@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Surimaki Dash</title>
+<meta name="description" content="Controle financeiro da Temakeria Moema">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Surimaki">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<style>
+:root{
+  --bg:#050505; --card:#121214; --card2:#19191c; --line:#2b2418; --gold:#d4a64a; --gold-dim:#8f6f2f;
+  --red:#e0372b; --ivory:#f4efe4; --muted:#a39b8a; --ok:#6fbf8b; --warn:#e8b04a;
+  --r:14px; --gut:16px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ivory);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding:env(safe-area-inset-top) 0 calc(24px + env(safe-area-inset-bottom));min-height:100vh}
+h1,h2,h3{margin:0;font-weight:600}
+.wrap{max-width:880px;margin:0 auto;padding:0 var(--gut)}
+.hidden{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer}
+.num{font-variant-numeric:tabular-nums}
+
+/* tela de senha */
+#lock{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px var(--gut)}
+#lock img{width:168px;height:168px;border-radius:50%}
+#lock h1{font-size:26px;letter-spacing:.04em;margin:18px 0 4px;color:var(--gold)}
+#lock p{color:var(--muted);margin:0 0 22px}
+#lock form{width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px}
+input[type=password]{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ivory);font-size:17px}
+input[type=password]:focus{outline:2px solid var(--gold);outline-offset:1px}
+.btn{background:var(--gold);color:#1a1405;border:0;border-radius:12px;padding:14px;font-weight:600;font-size:16px}
+.btn:disabled{opacity:.6}
+.chk{display:flex;gap:8px;align-items:center;justify-content:center;color:var(--muted);font-size:14px}
+#erro{color:var(--red);min-height:1.2em;font-size:14px}
+
+/* topo */
+header{position:sticky;top:0;z-index:5;background:rgba(5,5,5,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 0}
+.top{display:flex;align-items:center;gap:12px}
+.top img{width:42px;height:42px;border-radius:50%}
+.top .t{flex:1;min-width:0}
+.top h1{font-size:17px;color:var(--gold);letter-spacing:.03em}
+.top small{color:var(--muted);display:block;font-size:12px;line-height:1.3}
+.icon-btn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--muted)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;color:var(--muted);font-size:14px}
+.chip[aria-pressed=true]{background:var(--gold);color:#1a1405;border-color:var(--gold);font-weight:600}
+
+/* avisos */
+.aviso{margin:12px 0 0;padding:10px 12px;border-radius:12px;border:1px solid var(--gold-dim);background:rgba(212,166,74,.08);color:var(--warn);font-size:14px}
+.aviso.red{border-color:#7a2a24;background:rgba(224,55,43,.1);color:#ff9a90}
+
+section{margin-top:22px}
+section>h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:640px){.kpis{grid-template-columns:repeat(3,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.kpi .l{color:var(--muted);font-size:12.5px}
+.kpi .v{font-size:21px;font-weight:650;margin-top:2px}
+.kpi .s{color:var(--muted);font-size:12.5px;margin-top:2px}
+.kpi.dest .v{color:var(--gold)}
+.neg{color:var(--red)!important}
+
+/* gráfico diário */
+.bars{display:flex;align-items:flex-end;gap:2px;height:120px}
+.bars button{flex:1;min-width:0;border:0;padding:0;background:var(--gold);border-radius:3px 3px 0 0;opacity:.9}
+.bars button.fds{background:var(--gold-dim)}
+.bars button.zero{background:var(--line);height:2px!important}
+.bars button.sel{outline:2px solid var(--ivory)}
+.axis{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;margin-top:4px}
+#sel-dia{margin-top:8px;color:var(--muted);font-size:13.5px;min-height:1.3em}
+
+/* mix e barras horizontais */
+.stack{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line)}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin-top:10px;font-size:13.5px}
+.legend>div{display:flex;align-items:center;gap:6px;min-width:0}
+.legend span.dot{flex:0 0 10px;width:10px;height:10px;border-radius:50%}
+.legend b{margin-left:auto;font-weight:600}
+.hb{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;margin-bottom:10px;font-size:14px}
+.hb .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb .v{color:var(--muted)}
+.hb .barra{grid-column:1/-1;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.hb .barra i{display:block;height:100%;background:var(--gold)}
+
+/* alertas */
+.alert{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:11px 12px;margin-bottom:9px;background:var(--card)}
+.alert.alta{border-left-color:var(--red)}
+.alert.baixa{border-left-color:#59544a}
+.alert.aceito{opacity:.6}
+.alert .h{display:flex;gap:8px;justify-content:space-between;align-items:baseline}
+.alert .tipo{font-weight:600;font-size:14.5px}
+.alert .val{font-weight:650;white-space:nowrap}
+.alert .d{color:var(--muted);font-size:13px;margin-top:3px}
+.alert .a{font-size:13px;margin-top:5px;color:var(--gold)}
+.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-right:6px}
+.vazio{color:var(--muted);text-align:center;padding:18px}
+
+/* tabelas */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{color:var(--muted);font-weight:500;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px;text-align:right;border-bottom:1px solid #1d1d20;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+.ok{color:var(--ok)} .bad{color:var(--red)} .mid{color:var(--warn)}
+footer{margin-top:28px;color:var(--muted);font-size:12.5px;text-align:center}
+</style>
+</head>
+<body>
+
+<div id="lock">
+  <img src="icons/icon-512.png" alt="Surimaki">
+  <h1>SURIMAKI DASH</h1>
+  <p>Controle da Temakeria Moema</p>
+  <form id="f-senha" autocomplete="on">
+    <input type="password" id="senha" placeholder="Senha" autocomplete="current-password" required>
+    <label class="chk"><input type="checkbox" id="lembrar" checked> Manter neste aparelho</label>
+    <button class="btn" id="entrar" type="submit">Entrar</button>
+    <div id="erro" role="alert"></div>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="wrap">
+      <div class="top">
+        <img src="icons/icon-180.png" alt="">
+        <div class="t"><h1>Surimaki Dash</h1><small id="sub">carregando…</small></div>
+        <button class="icon-btn" id="atualizar" aria-label="Recarregar dados">↻</button>
+        <button class="icon-btn" id="sair" aria-label="Sair">Sair</button>
+      </div>
+      <div class="chips" id="meses" role="group" aria-label="Mês"></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="avisos"></div>
+
+    <section><h2>Resultado do mês</h2><div class="kpis" id="kpis"></div></section>
+
+    <section><h2>Venda por dia</h2>
+      <div class="card"><div class="bars" id="bars"></div><div class="axis" id="axis"></div><div id="sel-dia"></div></div>
+    </section>
+
+    <section><h2>De onde vem a venda</h2><div class="card" id="mix"></div></section>
+
+    <section><h2>Alertas de divergência</h2>
+      <div class="chips" id="f-alertas" role="group" aria-label="Filtro de alertas"></div>
+      <div id="alertas"></div>
+    </section>
+
+    <section><h2>PDV x DLP</h2><div class="card tw" id="pdv"></div></section>
+
+    <section><h2>Repasse Keeta por semana</h2><div class="card tw" id="keeta"></div></section>
+
+    <section><h2>Despesas do mês</h2><div class="card" id="desp"></div></section>
+
+    <section><h2>Matéria-prima por fornecedor</h2><div class="card" id="mp"></div></section>
+
+    <footer id="rodape"></footer>
+  </main>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const BRL = new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"});
+const BRL0 = new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL", maximumFractionDigits:0});
+const PCT = (x) => (x*100).toLocaleString("pt-BR", {minimumFractionDigits:1, maximumFractionDigits:1}) + "%";
+const MESES = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dm = (iso) => iso.slice(8,10) + "/" + iso.slice(5,7);
+const labelMes = (m) => MESES[+m.slice(5,7)-1] + "/" + m.slice(0,4);
+const sum = (a, f) => a.reduce((s,x) => s + (+f(x) || 0), 0);
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+
+let D = null;            // dados abertos
+let senhaAtual = null;
+let mesSel = null, filtroAlerta = "abertos";
+
+/* ---------- criptografia (AES-GCM, chave PBKDF2) ---------- */
+const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function abrir(pacote, senha){
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(senha), "PBKDF2", false, ["deriveKey"]);
+  const chave = await crypto.subtle.deriveKey({name:"PBKDF2", salt:b64(pacote.salt), iterations:pacote.iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+  const claro = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64(pacote.iv)}, chave, b64(pacote.ct));
+  return JSON.parse(new TextDecoder().decode(claro));
+}
+async function buscar(senha){
+  const r = await fetch("data.enc.json?t=" + Date.now(), {cache:"no-store"});
+  if (!r.ok) throw new Error("dados indisponíveis (" + r.status + ")");
+  return abrir(await r.json(), senha);
+}
+
+/* ---------- entrada ---------- */
+$("f-senha").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const senha = $("senha").value; if (!senha) return;
+  $("erro").textContent = ""; $("entrar").disabled = true; $("entrar").textContent = "Abrindo…";
+  try {
+    D = await buscar(senha); senhaAtual = senha;
+    if ($("lembrar").checked) store.set("sd_senha", senha); else store.del("sd_senha");
+    $("lock").classList.add("hidden"); $("app").classList.remove("hidden"); iniciar();
+  } catch (err) {
+    $("erro").textContent = err && err.name === "OperationError" ? "Senha incorreta." : "Não consegui abrir: " + (err && err.message || err);
+  } finally { $("entrar").disabled = false; $("entrar").textContent = "Entrar"; }
+});
+$("sair").addEventListener("click", () => { store.del("sd_senha"); location.reload(); });
+$("atualizar").addEventListener("click", recarregar);
+async function recarregar(){
+  if (!senhaAtual) return;
+  try { D = await buscar(senhaAtual); desenhar(); } catch (e) { $("sub").textContent = "falha ao recarregar"; }
+}
+(async () => {
+  const salva = store.get("sd_senha");
+  if (!salva) return;
+  try { D = await buscar(salva); senhaAtual = salva; $("lock").classList.add("hidden"); $("app").classList.remove("hidden"); iniciar(); }
+  catch (e) { if (e && e.name === "OperationError") store.del("sd_senha"); }
+})();
+document.addEventListener("visibilitychange", () => { if (!document.hidden && senhaAtual) recarregar(); });
+
+/* ---------- montagem ---------- */
+function iniciar(){
+  const meses = [...new Set(D.dlp_diario.filter((d) => d.tem_venda).map((d) => d.d.slice(0,7)))].sort();
+  mesSel = meses[meses.length-1];
+  const box = $("meses"); box.innerHTML = "";
+  meses.slice().reverse().forEach((m) => {
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = labelMes(m); b.dataset.m = m;
+    b.setAttribute("aria-pressed", m === mesSel);
+    b.addEventListener("click", () => { mesSel = m; desenhar(); });
+    box.appendChild(b);
+  });
+  desenhar();
+}
+
+function desenhar(){
+  document.querySelectorAll("#meses .chip").forEach((b) => b.setAttribute("aria-pressed", b.dataset.m === mesSel));
+  const dias = D.dlp_diario.filter((d) => d.d.slice(0,7) === mesSel);
+  const comVenda = dias.filter((d) => d.tem_venda);
+  cabecalho(); avisos(); kpis(dias, comVenda); grafico(dias); mix(comVenda); alertas(); pdv(); keeta(); despesas(); mp();
+  $("rodape").textContent = "Valores da DLP, extratos Itaú/PagBank e PDV. Dados criptografados; só este aparelho os abre.";
+}
+
+function statusInfo(){ return (D.status && D.status[0]) || {}; }
+function geradoEm(){
+  const t = new Date(D.gerado_em_utc);
+  return t.toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"});
+}
+function cabecalho(){
+  const s = statusInfo();
+  $("sub").textContent = "atualizado " + geradoEm() + " · DLP até " + (s.dlp_ate ? dm(s.dlp_ate) : "?") + " · extrato até " + (s.extrato_ate ? dm(s.extrato_ate) : "?");
+}
+function avisos(){
+  const s = statusInfo(), out = [];
+  const horas = (Date.now() - new Date(D.gerado_em_utc).getTime()) / 36e5;
+  if (horas > 36) out.push(["red", "O robô não atualiza há " + Math.round(horas) + " horas. Veja a aba Actions do repositório no GitHub."]);
+  if (s.dlp_ate && s.extrato_ate) {
+    const dif = (new Date(s.dlp_ate) - new Date(s.extrato_ate)) / 864e5;
+    if (dif > 4) out.push(["", "Extrato do Itaú desatualizado: vai até " + dm(s.extrato_ate) + " e a DLP vai até " + dm(s.dlp_ate) + ". Baixe um extrato novo."]);
+  }
+  if (s.pagbank_ate && s.extrato_ate && (new Date(s.extrato_ate) - new Date(s.pagbank_ate)) / 864e5 > 4)
+    out.push(["", "Extrato do PagBank vai só até " + dm(s.pagbank_ate) + "."]);
+  $("avisos").innerHTML = out.map(([c, t]) => '<div class="aviso ' + c + '">' + esc(t) + '</div>').join("");
+}
+
+function kpis(dias, comVenda){
+  const venda = sum(comVenda, (d) => d.venda_total), mpv = sum(comVenda, (d) => d.mp), desp = sum(dias, (d) => d.desp_total);
+  const luc = sum(dias, (d) => d.lucro_liq), ret = sum(dias, (d) => d.retirada), ap = sum(dias, (d) => d.aporte);
+  const pessoas = sum(comVenda, (d) => d.pessoas);
+  const folha = sum(D.desp_categorias.filter((x) => x.mes === mesSel && /^folha/i.test(x.categoria)), (x) => x.valor);
+  const parcial = comVenda.length ? "até " + dm(comVenda[comVenda.length-1].d) + " · " + comVenda.length + " dias com venda" : "sem vendas";
+  const k = (l, v, s, cls) => '<div class="kpi ' + (cls||"") + '"><div class="l">' + l + '</div><div class="v num' + (v.startsWith("-") || v.includes("-R$") ? " neg" : "") + '">' + v + '</div><div class="s">' + s + '</div></div>';
+  $("kpis").innerHTML =
+    k("Venda total", BRL0.format(venda), parcial, "dest") +
+    k("Lucro líquido", BRL0.format(luc), venda ? PCT(luc/venda) + " da venda" : "", "dest") +
+    k("Matéria-prima", venda ? PCT(mpv/venda) : "–", BRL0.format(mpv)) +
+    k("Folha de pagamento", folha ? PCT(folha/venda) : "–", folha ? BRL0.format(folha) : "sem dado no mês") +
+    k("Despesas (sem MP)", BRL0.format(desp), venda ? PCT(desp/venda) + " da venda" : "") +
+    k("Retiradas dos sócios", BRL0.format(ret), "Após retiradas: " + BRL0.format(luc - ret)) +
+    (pessoas ? k("Ticket médio", BRL.format(venda/pessoas), Math.round(pessoas) + " pessoas") : "") +
+    (ap ? k("Aportes", BRL0.format(ap), "abaixo do lucro líquido") : "");
+}
+
+function grafico(dias){
+  const max = Math.max(1, ...dias.map((d) => d.venda_total));
+  const box = $("bars"); box.innerHTML = "";
+  dias.forEach((d) => {
+    const b = document.createElement("button");
+    const dow = new Date(d.d + "T12:00:00").getDay();
+    b.className = (d.tem_venda ? "" : "zero ") + (dow === 0 || dow === 6 ? "fds" : "");
+    b.style.height = Math.max(2, d.venda_total / max * 100) + "%";
+    b.setAttribute("aria-label", dm(d.d) + " " + BRL.format(d.venda_total));
+    b.addEventListener("click", () => {
+      box.querySelectorAll(".sel").forEach((x) => x.classList.remove("sel")); b.classList.add("sel");
+      const nomes = ["dom","seg","ter","qua","qui","sex","sáb"];
+      $("sel-dia").textContent = nomes[dow] + " " + dm(d.d) + ": " + BRL.format(d.venda_total) + (d.pessoas ? " · " + d.pessoas + " pessoas" : "") + " · lucro " + BRL.format(d.lucro_liq);
+    });
+    box.appendChild(b);
+  });
+  $("axis").innerHTML = dias.length ? "<span>" + dm(dias[0].d) + "</span><span>" + dm(dias[dias.length-1].d) + "</span>" : "";
+  $("sel-dia").textContent = dias.length ? "Toque em uma barra para ver o dia." : "";
+}
+
+function mix(dias){
+  const itens = [
+    ["Cartões e vales", "#d4a64a", sum(dias, (d) => d.cartoes + d.vr)],
+    ["Keeta", "#e0372b", sum(dias, (d) => d.keeta)],
+    ["99Food", "#f08a5d", sum(dias, (d) => d.food99)],
+    ["iFood", "#b4442f", sum(dias, (d) => d.ifood)],
+    ["Pix", "#8fb8a3", sum(dias, (d) => d.pix)],
+    ["Dinheiro", "#c9c2b0", sum(dias, (d) => d.dinheiro)],
+    ["Despesas pagas", "#6b6558", sum(dias, (d) => d.despesas_pagas)],
+  ];
+  const tot = sum(itens, (i) => i[2]);
+  if (!tot) { $("mix").innerHTML = '<div class="vazio">Sem vendas neste mês.</div>'; return; }
+  const delivery = itens[1][2] + itens[2][2] + itens[3][2];
+  $("mix").innerHTML = '<div class="stack">' + itens.filter((i) => i[2] > 0).map((i) => '<i style="width:' + (i[2]/tot*100) + '%;background:' + i[1] + '"></i>').join("") + '</div>' +
+    '<div class="legend">' + itens.filter((i) => i[2] > 0).map((i) => '<div><span class="dot" style="background:' + i[1] + '"></span>' + i[0] + '<b class="num">' + PCT(i[2]/tot) + '</b></div>').join("") + '</div>' +
+    '<div class="vazio" style="padding:10px 0 0;text-align:left">Delivery somado: ' + BRL0.format(delivery) + ' (' + PCT(delivery/tot) + ')</div>';
+}
+
+/* ---------- alertas ---------- */
+function alertas(){
+  const todos = D.alertas || [];
+  const ab = todos.filter((a) => a.status === "aberto"), ac = todos.filter((a) => a.status !== "aberto");
+  const cont = (g) => ab.filter((a) => a.gravidade === g).length;
+  const fil = [["abertos", "Abertos (" + ab.length + ")"], ["alta", "Altos (" + cont("alta") + ")"], ["media", "Médios (" + cont("media") + ")"], ["baixa", "Baixos (" + cont("baixa") + ")"], ["aceitos", "Aceitos (" + ac.length + ")"]];
+  $("f-alertas").innerHTML = fil.map(([k, t]) => '<button class="chip" data-f="' + k + '" aria-pressed="' + (k === filtroAlerta) + '">' + t + '</button>').join("");
+  document.querySelectorAll("#f-alertas .chip").forEach((b) => b.addEventListener("click", () => { filtroAlerta = b.dataset.f; alertas(); }));
+  let lista = filtroAlerta === "aceitos" ? ac : filtroAlerta === "abertos" ? ab : ab.filter((a) => a.gravidade === filtroAlerta);
+  const peso = {alta:0, media:1, baixa:2};
+  lista = lista.slice().sort((a, b) => (peso[a.gravidade] - peso[b.gravidade]) || (b.data > a.data ? 1 : -1));
+  $("alertas").innerHTML = lista.length ? lista.map((a) => {
+    const dif = a.diferenca, sinal = dif > 0 ? "+" : "";
+    return '<div class="alert ' + esc(a.gravidade) + (a.status === "aberto" ? "" : " aceito") + '"><div class="h"><div class="tipo">' + esc(a.tipo) + '</div><div class="val num">' + sinal + BRL.format(dif) + '</div></div>' +
+      '<div class="d"><span class="tag">' + esc(dm(a.data)) + '</span>' + esc(a.item) + '</div><div class="d">' + esc(a.descricao) + '</div>' +
+      (a.status === "aberto" ? '<div class="a">→ ' + esc(a.acao) + '</div>' : '<div class="a">Explicado: ' + esc(a.motivo) + '</div>') + '</div>';
+  }).join("") : '<div class="vazio">Nenhum alerta aqui. 🎉</div>';
+}
+
+/* ---------- tabelas e rankings ---------- */
+function pdv(){
+  const r = (D.pdv_dlp || []).slice(-8).reverse();
+  if (!r.length) { $("pdv").innerHTML = '<div class="vazio">Sem relatórios do PDV.</div>'; return; }
+  $("pdv").innerHTML = '<table><thead><tr><th>Período</th><th>PDV</th><th>DLP</th><th>Dif.</th></tr></thead><tbody>' +
+    r.map((x) => '<tr><td>' + esc(x.periodo) + '</td><td class="num">' + BRL0.format(x.pdv_total) + '</td><td class="num">' + BRL0.format(x.dlp_total) + '</td><td class="num ' + (x.situacao === "confere" ? "ok" : x.situacao === "diverge" ? "bad" : "mid") + '" title="' + esc(x.situacao) + '">' + (x.situacao === "confere" ? "confere" : BRL0.format(x.maior_dif)) + '</td></tr>').join("") + '</tbody></table>' +
+    '<div class="vazio" style="padding:8px 0 0;text-align:left;font-size:12.5px">Vermelho: diverge. Amarelo: DLP incompleta no período.</div>';
+}
+function keeta(){
+  const r = (D.keeta_semanal || []).slice(-8).reverse();
+  if (!r.length) { $("keeta").innerHTML = '<div class="vazio">Sem semanas fechadas.</div>'; return; }
+  $("keeta").innerHTML = '<table><thead><tr><th>Semana de</th><th>Venda DLP</th><th>Repasse</th><th>Repassado</th></tr></thead><tbody>' +
+    r.map((x) => { const p = 1 - x.retencao; return '<tr><td>' + dm(x.semana) + '</td><td class="num">' + BRL0.format(x.venda_dlp) + '</td><td class="num">' + BRL0.format(x.repasse) + '</td><td class="num ' + (p < .5 || p > .67 ? "bad" : "ok") + '">' + (x.repasse ? PCT(p) : "sem repasse") + '</td></tr>'; }).join("") + '</tbody></table>';
+}
+function ranking(el, linhas, total){
+  const top = linhas.filter((l) => l.valor > 0).sort((a, b) => b.valor - a.valor).slice(0, 8);
+  if (!top.length) { $(el).innerHTML = '<div class="vazio">Sem lançamentos neste mês.</div>'; return; }
+  const max = top[0].valor;
+  $(el).innerHTML = top.map((l) => '<div class="hb"><div class="n">' + esc(l.nome) + '</div><div class="v num">' + BRL0.format(l.valor) + (total ? " · " + PCT(l.valor/total) : "") + '</div><div class="barra"><i style="width:' + (l.valor/max*100) + '%"></i></div></div>').join("");
+}
+function despesas(){
+  const l = D.desp_categorias.filter((x) => x.mes === mesSel).map((x) => ({nome:x.categoria, valor:x.valor}));
+  ranking("desp", l, sum(l, (x) => x.valor));
+}
+function mp(){
+  const l = D.mp_fornecedores.filter((x) => x.mes === mesSel).map((x) => ({nome:x.fornecedor, valor:x.valor}));
+  ranking("mp", l, sum(l, (x) => x.valor));
+}
+
+/* atualiza sozinho a cada 10 minutos enquanto a página está aberta */
+setInterval(() => { if (senhaAtual && !document.hidden) recarregar(); }, 600000);
+</script>
+</body>
+</html>

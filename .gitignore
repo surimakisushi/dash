@@ -1,0 +1,10 @@
+# Dados financeiros NUNCA vão para o repositório: o robô baixa do Dropbox em work/ e publica só a versão criptografada.
+work/
+out/
+site/data.enc.json
+*.xlsx
+*.xls
+*.csv
+__pycache__/
+.env
+*.pyc
