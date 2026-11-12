@@ -440,7 +440,7 @@ $("alertas").addEventListener("click", async (e) => {
 
 /* ---------- tabelas e rankings ---------- */
 function pdv(){
-  const r = (D.pdv_dlp || []).slice(-8).reverse();
+  const r = (D.pdv_dlp || []).slice(-12).reverse();
   if (!r.length) { $("pdv").innerHTML = '<div class="vazio">Sem relatórios do PDV.</div>'; return; }
   $("pdv").innerHTML = '<table><thead><tr><th>Período</th><th>PDV</th><th>DLP</th><th>Dif.</th></tr></thead><tbody>' +
     r.map((x) => '<tr><td>' + esc(x.periodo) + '</td><td class="num">' + BRL0.format(x.pdv_total) + '</td><td class="num">' + BRL0.format(x.dlp_total) + '</td><td class="num ' + (x.situacao === "confere" ? "ok" : x.situacao === "diverge" ? "bad" : "mid") + '" title="' + esc(x.situacao) + '">' + (x.situacao === "confere" ? "confere" : BRL0.format(x.maior_dif)) + '</td></tr>').join("") + '</tbody></table>' +
