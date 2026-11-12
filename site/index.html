@@ -52,6 +52,13 @@ header{position:sticky;top:0;z-index:5;background:rgba(5,5,5,.92);backdrop-filte
 .top h1{font-size:17px;color:var(--gold);letter-spacing:.03em}
 .top small{color:var(--muted);display:block;font-size:12px;line-height:1.3}
 .icon-btn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--muted)}
+.icon-btn.rc{pointer-events:none;opacity:.8}
+.icon-btn.rc .giro{display:inline-block;animation:rc-giro 1s linear infinite}
+@keyframes rc-giro{to{transform:rotate(360deg)}}
+.pts span{display:inline-block;animation:rc-pulo 1.2s infinite ease-in-out}
+.pts span:nth-child(2){animation-delay:.2s}.pts span:nth-child(3){animation-delay:.4s}
+@keyframes rc-pulo{0%,80%,100%{opacity:.2;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+@media (prefers-reduced-motion:reduce){.icon-btn.rc .giro,.pts span{animation:none;opacity:1}}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;color:var(--muted);font-size:14px}
@@ -147,7 +154,7 @@ footer{margin-top:28px;color:var(--muted);font-size:12.5px;text-align:center}
       <div class="top">
         <img src="icons/icon-180.png" alt="">
         <div class="t"><h1>Surimaki Dash</h1><small id="sub">carregando…</small></div>
-        <button class="icon-btn" id="atualizar" aria-label="Recarregar dados">↻</button>
+        <button class="icon-btn" id="atualizar" aria-label="Recarregar dados"><span class="giro">↻</span></button>
         <button class="icon-btn" id="sair" aria-label="Sair">Sair</button>
       </div>
       <div class="chips" id="meses" role="group" aria-label="Mês"></div>
@@ -234,10 +241,29 @@ $("f-senha").addEventListener("submit", async (e) => {
   } finally { $("entrar").disabled = false; $("entrar").textContent = "Entrar"; }
 });
 $("sair").addEventListener("click", () => { store.del("sd_senha"); location.reload(); });
-$("atualizar").addEventListener("click", recarregar);
-async function recarregar(){
+$("atualizar").addEventListener("click", () => recarregar(true));
+let audioCtx = null;
+function destravarSom(){ try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === "suspended") audioCtx.resume(); } catch (e) {} }
+function bip(){   // dois toques curtos = "pronto"
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  [[880, 0], [1320, 0.16]].forEach(([f, d]) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = "sine"; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.25, t0 + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.14);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t0 + d); o.stop(t0 + d + 0.16);
+  });
+}
+async function recarregar(manual){
   if (!senhaAtual) return;
-  try { D = await buscar(senhaAtual); desenhar(); } catch (e) { $("sub").textContent = "falha ao recarregar"; }
+  const btn = $("atualizar");
+  if (manual === true) {   // só o toque no botão mostra a animação e avisa com som; a atualização automática é silenciosa
+    destravarSom(); btn.classList.add("rc"); btn.setAttribute("aria-busy", "true");
+    $("sub").innerHTML = 'Recarregando <span class="pts"><span>.</span> <span>.</span> <span>.</span></span>';
+  }
+  try { D = await buscar(senhaAtual); desenhar(); if (manual === true) bip(); }
+  catch (e) { $("sub").textContent = "falha ao recarregar"; }
+  finally { btn.classList.remove("rc"); btn.removeAttribute("aria-busy"); }
 }
 (async () => {
   const salva = store.get("sd_senha");
