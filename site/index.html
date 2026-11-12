@@ -440,11 +440,11 @@ $("alertas").addEventListener("click", async (e) => {
 
 /* ---------- tabelas e rankings ---------- */
 function pdv(){
-  const r = (D.pdv_dlp || []).slice(-8).reverse();
+  const r = (D.pdv_dlp || []).slice(-16).reverse();
   if (!r.length) { $("pdv").innerHTML = '<div class="vazio">Sem relatórios do PDV.</div>'; return; }
-  $("pdv").innerHTML = '<table><thead><tr><th>Período</th><th>PDV</th><th>DLP</th><th>Dif.</th></tr></thead><tbody>' +
+  $("pdv").innerHTML = '<table><thead><tr><th>Dia / período</th><th>PDV</th><th>DLP</th><th>Dif.</th></tr></thead><tbody>' +
     r.map((x) => '<tr><td>' + esc(x.periodo) + '</td><td class="num">' + BRL0.format(x.pdv_total) + '</td><td class="num">' + BRL0.format(x.dlp_total) + '</td><td class="num ' + (x.situacao === "confere" ? "ok" : x.situacao === "diverge" ? "bad" : "mid") + '" title="' + esc(x.situacao) + '">' + (x.situacao === "confere" ? "confere" : BRL0.format(x.maior_dif)) + '</td></tr>').join("") + '</tbody></table>' +
-    '<div class="vazio" style="padding:8px 0 0;text-align:left;font-size:12.5px">Vermelho: diverge. Amarelo: DLP incompleta no período.</div>';
+    '<div class="vazio" style="padding:8px 0 0;text-align:left;font-size:12.5px">Vermelho: diverge. Amarelo: DLP incompleta. Dia a dia vale mais que o período.</div>';
 }
 function keeta(){
   const r = (D.keeta_semanal || []).slice(-8).reverse();

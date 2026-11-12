@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Lê os relatórios 'faturamento' do PDV Chef Solution (coluna Físico) e compara com a DLP por período.
 Saídas em out/: pdv_dlp.json (um registro por período) e pdv_alertas.json (diferenças acima do limite).
-Limites: alta >= R$ 1.000, média >= R$ 300 (diferença de qualquer grupo ou do total)."""
+Limites: alta >= R$ 1.000, média >= R$ 300 (diferença de qualquer grupo ou do total).
+Arquivos por dia ('faturamento 12.10.2026.xls', pasta AAAA_MM_por_dia) valem mais que os de período: um período só entra se
+algum dia dele NÃO tiver arquivo diário. Assim o mesmo faturamento nunca é contado duas vezes."""
 import xlrd, glob, os, re, json, datetime, sys, unicodedata
 import config
 OUT, PDV = config.OUT, config.PASTA_PDV
@@ -21,6 +23,13 @@ def periodo(nome, pasta_mes):
     except ValueError: return None
     if fim < ini: return None
     return ini, fim
+def dia_unico(nome):
+    """'faturamento 12.10.2026.xls' -> (date, date). Qualquer outro nome -> None."""
+    m = re.fullmatch(r"faturamento\s+(\d{1,2})\.(\d{1,2})\.(\d{4})\.xls", norm(nome).strip())
+    if not m: return None
+    try: d = datetime.date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    except ValueError: return None
+    return d, d
 def le_fisico(path):
     sh = xlrd.open_workbook(path, logfile=open(os.devnull,"w")).sheet_by_index(0)
     g = {}
@@ -33,13 +42,25 @@ def le_fisico(path):
 def main():
     dlp = {d["d"]: d for d in json.load(open(os.path.join(OUT,"dlp_diario.json")))}
     regs, alertas = [], []
+    cand, diarios = [], {}
     for f in sorted(glob.glob(os.path.join(PDV, "20*", "*.xls"))):
         nome = os.path.basename(f)
         if not norm(nome).startswith("faturamento") : continue
         pasta_mes = int(os.path.basename(os.path.dirname(f))[5:7])
+        d1 = dia_unico(nome)
+        if d1:   # arquivo de um dia só: vale; se houver dois para a mesma data, fica o mais novo
+            ant = diarios.get(d1[0])
+            if not ant or os.path.getmtime(f) >= os.path.getmtime(ant[2]): diarios[d1[0]] = (d1[0], d1[0], f, nome)
+            continue
         p = periodo(nome, pasta_mes)
         if not p: continue
-        ini, fim = p
+        cand.append((p[0], p[1], f, nome))
+    ignorados = []
+    for ini, fim, f, nome in list(cand):   # período totalmente coberto por arquivos diários: ignora
+        if all((ini+datetime.timedelta(days=i)) in diarios for i in range((fim-ini).days+1)):
+            ignorados.append(nome); cand.remove((ini, fim, f, nome))
+    todos = cand + list(diarios.values())
+    for ini, fim, f, nome in sorted(todos, key=lambda x: (x[0], x[1])):
         try: g = le_fisico(f)
         except Exception as e: print("  aviso: não li", nome, e); continue
         # grupos de topo (linhas-pai): Cartao, Ticket, Outros, Pix, Dinheiro
@@ -52,7 +73,8 @@ def main():
         dl["total"] = sum(dl.values()); dl = {k: round(v,2) for k,v in dl.items()}
         dif = {k: round(dl[k]-pdv[k],2) for k in pdv}
         pior = max(abs(v) for v in dif.values())
-        reg = {"periodo": f"{ini.strftime('%d/%m')} a {fim.strftime('%d/%m')}", "ini": ini.isoformat(), "fim": fim.isoformat(), "arquivo": nome, "dias_dlp": len(L),
+        rotulo = ini.strftime('%d/%m') if ini == fim else f"{ini.strftime('%d/%m')} a {fim.strftime('%d/%m')}"
+        reg = {"periodo": rotulo, "tipo": "dia" if ini == fim else "periodo", "ini": ini.isoformat(), "fim": fim.isoformat(), "arquivo": nome, "dias_dlp": len(L),
                **{f"pdv_{k}": v for k,v in pdv.items()}, **{f"dlp_{k}": v for k,v in dl.items()}, **{f"dif_{k}": v for k,v in dif.items()}, "maior_dif": pior}
         reg["situacao"] = "diverge" if pior >= 300 else "confere"
         regs.append(reg)
@@ -61,10 +83,11 @@ def main():
             incompleta = dl["total"] <= 0.6*pdv["total"]
             if incompleta: reg["situacao"] = "DLP incompleta"
             alertas.append({"mes": fim.isoformat()[:7], "data": fim.isoformat(), "tipo": "PDV com a DLP incompleta" if incompleta else "PDV x DLP", "gravidade": "alta" if pior >= 1000 else "media", "item": f"PDV {reg['periodo']} ({k.replace('_',' ')})",
-                            "valor_dlp": dl[k], "valor_extrato": pdv[k], "diferenca": dif[k], "descricao": f"{reg['periodo']}: DLP {dl[k]:.2f} x PDV {pdv[k]:.2f} em {k.replace('_',' ')}", "acao": "Lançar o período na DLP" if incompleta else "Conferir o fechamento do dia no PDV e o lançamento na DLP"})
+                            "valor_dlp": dl[k], "valor_extrato": pdv[k], "diferenca": dif[k], "descricao": f"{reg['periodo']}: DLP {dl[k]:.2f} x PDV {pdv[k]:.2f} em {k.replace('_',' ')}", "acao": ("Lançar o dia na DLP" if ini == fim else "Lançar o período na DLP") if incompleta else "Conferir o fechamento do dia no PDV e o lançamento na DLP"})
     regs.sort(key=lambda r: r["ini"])
     json.dump(regs, open(os.path.join(OUT,"pdv_dlp.json"),"w"), ensure_ascii=False)
     json.dump(alertas, open(os.path.join(OUT,"pdv_alertas.json"),"w"), ensure_ascii=False)
-    print(len(regs), "períodos do PDV |", len(alertas), "divergências")
-    for r in regs[-14:]: print(r["periodo"], r["pdv_total"], r["dlp_total"], r["maior_dif"], r["situacao"])
+    print(len(regs), "registros do PDV (", sum(1 for r in regs if r["tipo"] == "dia"), "dias +", sum(1 for r in regs if r["tipo"] == "periodo"), "períodos ) |", len(alertas), "divergências")
+    if ignorados: print("  períodos ignorados por já terem arquivo dia a dia:", len(ignorados))
+    for r in regs[-24:]: print(r["periodo"], r["pdv_total"], r["dlp_total"], r["maior_dif"], r["situacao"])
 if __name__ == "__main__": main()
