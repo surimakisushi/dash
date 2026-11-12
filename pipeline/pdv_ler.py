@@ -11,7 +11,14 @@ def periodo(nome, pasta_mes):
     n = norm(nome)
     if "inteiro" in n or re.search(r"faturamento mes", n): return None
     m = re.search(r"(\d{1,2})(?:[./](\d{1,2}))?\s*(?:ate|a)\s*(\d{1,2})(?:[./](\d{1,2}))?", n)
-    if not m: return None
+    if not m:
+        # relatório de um dia só, ex.: "faturamento 27.10.2026.xls" (pasta AAAA_MM_por_dia)
+        d = re.search(r"(\d{1,2})[./](\d{1,2})[./](20\d{2})", n)
+        if not d: return None
+        try: dia = datetime.date(int(d.group(3)), int(d.group(2)), int(d.group(1)))
+        except ValueError: return None
+        return dia, dia
+    
     d1, m1, d2, m2 = int(m.group(1)), m.group(2), int(m.group(3)), m.group(4)
     nome_mes = next((v for k,v in MESES.items() if k in n), None)
     fim_m = int(m2) if m2 else (nome_mes or pasta_mes)
@@ -33,13 +40,18 @@ def le_fisico(path):
 def main():
     dlp = {d["d"]: d for d in json.load(open(os.path.join(OUT,"dlp_diario.json")))}
     regs, alertas = [], []
+    # 1) quais dias têm relatório diário: o período que já está inteiro coberto por relatórios diários não entra de novo (evita contar duas vezes)
+    arquivos = []
     for f in sorted(glob.glob(os.path.join(PDV, "20*", "*.xls"))):
         nome = os.path.basename(f)
         if not norm(nome).startswith("faturamento") : continue
         pasta_mes = int(os.path.basename(os.path.dirname(f))[5:7])
         p = periodo(nome, pasta_mes)
-        if not p: continue
+        if p: arquivos.append((f, nome, p))
+    dias_com_relatorio = {p[0] for _, _, p in arquivos if p[0] == p[1]}
+    for f, nome, p in arquivos:
         ini, fim = p
+        if ini != fim and all((ini+datetime.timedelta(days=i)) in dias_com_relatorio for i in range((fim-ini).days+1)): continue
         try: g = le_fisico(f)
         except Exception as e: print("  aviso: não li", nome, e); continue
         # grupos de topo (linhas-pai): Cartao, Ticket, Outros, Pix, Dinheiro
@@ -52,7 +64,7 @@ def main():
         dl["total"] = sum(dl.values()); dl = {k: round(v,2) for k,v in dl.items()}
         dif = {k: round(dl[k]-pdv[k],2) for k in pdv}
         pior = max(abs(v) for v in dif.values())
-        reg = {"periodo": f"{ini.strftime('%d/%m')} a {fim.strftime('%d/%m')}", "ini": ini.isoformat(), "fim": fim.isoformat(), "arquivo": nome, "dias_dlp": len(L),
+        reg = {"periodo": (ini.strftime('%d/%m') if ini == fim else f"{ini.strftime('%d/%m')} a {fim.strftime('%d/%m')}"), "ini": ini.isoformat(), "fim": fim.isoformat(), "arquivo": nome, "dias_dlp": len(L),
                **{f"pdv_{k}": v for k,v in pdv.items()}, **{f"dlp_{k}": v for k,v in dl.items()}, **{f"dif_{k}": v for k,v in dif.items()}, "maior_dif": pior}
         reg["situacao"] = "diverge" if pior >= 300 else "confere"
         regs.append(reg)
