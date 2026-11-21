@@ -91,6 +91,25 @@ section>h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:va
 .axis{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;margin-top:4px}
 #sel-dia{margin-top:8px;color:var(--muted);font-size:13.5px;min-height:1.3em}
 
+
+/* gráfico do ano: lucro, investimento, aporte e retirada */
+.ano{display:flex;gap:4px;align-items:stretch;margin:8px 0 2px}
+.ano-y{position:relative;color:var(--muted);font-size:11px;width:46px;text-align:right;padding-right:4px}
+.ano-y span{position:absolute;right:4px;transform:translateY(-50%);white-space:nowrap}
+.ano-plot{flex:1;position:relative;height:200px;border-left:1px solid var(--line)}
+.ano-zero{position:absolute;left:0;right:0;height:0;border-top:1px dashed #4a4332}
+.ano-cols{position:absolute;inset:0;display:flex;gap:6px}
+.ano-col{flex:1;min-width:0;position:relative;display:flex;gap:1px;padding:0;border:0;background:transparent;cursor:pointer}
+.ano-col.sel{background:rgba(212,166,74,.1);outline:1px solid var(--gold-dim)}
+.ano-b{flex:1;position:relative;min-width:0}
+.ano-b i{position:absolute;left:0;right:0;border-radius:2px;display:block}
+.ano-x{display:flex;gap:6px;margin:4px 0 0 50px;color:var(--muted);font-size:11.5px}
+.ano-x span{flex:1;text-align:center;min-width:0}
+.ano-leg{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:13px}
+.ano-leg span{display:inline-flex;align-items:center;gap:6px}
+.ano-leg .dot{width:10px;height:10px;border-radius:2px}
+#sel-ano{margin-top:8px;color:var(--muted);font-size:13.5px;min-height:2.6em}
+
 /* mix e barras horizontais */
 .stack{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line)}
 .legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin-top:10px;font-size:13.5px}
@@ -170,6 +189,10 @@ footer{margin-top:28px;color:var(--muted);font-size:12.5px;text-align:center}
       <div class="card"><div class="bars" id="bars"></div><div class="axis" id="axis"></div><div id="sel-dia"></div></div>
     </section>
 
+    <section><h2>Ano: lucro, investimento, aporte e retirada</h2>
+      <div class="card"><div id="ano"></div></div>
+    </section>
+
     <section><h2>De onde vem a venda</h2><div class="card" id="mix"></div></section>
 
     <section><h2>Alertas de divergência</h2>
@@ -212,6 +235,8 @@ let mesSel = null, filtroAlerta = "abertos";
 let pend = {};           // explicações já enviadas deste aparelho, esperando o próximo ciclo do robô
 try { pend = JSON.parse(store.get("sd_pend") || "{}") || {}; } catch (e) { pend = {}; }
 let tokNotas = null;
+let empAno = false;     // gráfico do ano: incluir o empréstimo de sócia?
+let mesAno = null;      // mês marcado no gráfico do ano
 
 /* ---------- criptografia (AES-GCM, chave PBKDF2) ---------- */
 const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -291,7 +316,7 @@ function desenhar(){
   document.querySelectorAll("#meses .chip").forEach((b) => b.setAttribute("aria-pressed", b.dataset.m === mesSel));
   const dias = D.dlp_diario.filter((d) => d.d.slice(0,7) === mesSel);
   const comVenda = dias.filter((d) => d.tem_venda);
-  cabecalho(); avisos(); kpis(dias, comVenda); grafico(dias); mix(comVenda); alertas(); pdv(); keeta(); despesas(); mp();
+  cabecalho(); avisos(); kpis(dias, comVenda); grafico(dias); graficoAno(); mix(comVenda); alertas(); pdv(); keeta(); despesas(); mp();
   $("rodape").textContent = "Valores da DLP, extratos Itaú/PagBank e PDV. Dados criptografados; só este aparelho os abre.";
 }
 
@@ -353,6 +378,62 @@ function grafico(dias){
   });
   $("axis").innerHTML = dias.length ? "<span>" + dm(dias[0].d) + "</span><span>" + dm(dias[dias.length-1].d) + "</span>" : "";
   $("sel-dia").textContent = dias.length ? "Toque em uma barra para ver o dia." : "";
+}
+
+
+/* ---------- gráfico do ano: lucro líquido, investimento, aporte e retirada ---------- */
+const LIMITE_EMPRESTIMO = 50000;   // aporte/retirada de um dia igual ou acima disso é empréstimo de sócia (ex.: R$ 60 mil em nov/2026), não entra no gráfico
+const SERIES_ANO = [
+  ["lucro", "Lucro líquido", "#d4a64a"],
+  ["inv", "Investimento", "#7aa7d9"],
+  ["aporte", "Aporte", "#6fbf8b"],
+  ["ret", "Retirada", "#e0372b"]
+];
+function dadosAno(incluirEmp){
+  const meses = [...new Set(D.dlp_diario.filter((d) => d.tem_venda).map((d) => d.d.slice(0,7)))].sort();
+  let foraAp = 0, foraRet = 0;
+  const linhas = meses.map((m) => {
+    const todos = D.dlp_diario.filter((d) => d.d.slice(0,7) === m);
+    const ate = todos.filter((d) => d.tem_venda).map((d) => d.d).sort().pop();     // mês corrente: só até o último dia com venda
+    const dias = todos.filter((d) => d.d <= ate);
+    const val = (campo) => sum(dias, (d) => {
+      const v = Math.abs(d[campo] || 0);
+      if (v >= LIMITE_EMPRESTIMO && !incluirEmp) { if (campo === "aporte") foraAp += v; else foraRet += v; return 0; }
+      return v;
+    });
+    return {m, ate, parcial: ate !== todos[todos.length-1].d,
+      lucro: sum(dias, (d) => d.lucro_liq),
+      inv: sum(D.desp_categorias.filter((x) => x.mes === m && /^investimento/i.test(x.categoria)), (x) => x.valor),
+      aporte: val("aporte"), ret: val("retirada")};
+  });
+  return {linhas, fora: Math.max(foraAp, foraRet)};   // o empréstimo sai e volta: conta uma vez
+}
+function graficoAno(){
+  const {linhas, fora} = dadosAno(empAno);
+  if (!linhas.length) { $("ano").innerHTML = '<div class="vazio">Sem dados.</div>'; return; }
+  if (!linhas.some((l) => l.m === mesAno)) mesAno = linhas[linhas.length-1].m;
+  const vals = linhas.flatMap((l) => SERIES_ANO.map(([k]) => l[k]));
+  const passo = (x) => { const e = Math.pow(10, Math.floor(Math.log10(x || 1))); const f = x / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * e; };
+  const topo = Math.max(0, ...vals), fundo = Math.min(0, ...vals);
+  const yMax = topo ? Math.ceil(topo / passo(topo/2)) * passo(topo/2) : 0;
+  const yMin = fundo ? -Math.ceil(-fundo / passo(-fundo/2)) * passo(-fundo/2) : 0;
+  const faixa = (yMax - yMin) || 1, pos = (v) => (yMax - v) / faixa * 100;
+  const mil = (v) => (v < 0 ? "-" : "") + (Math.abs(v) / 1000).toLocaleString("pt-BR", {maximumFractionDigits:1}) + " mil";
+  const cols = linhas.map((l) => '<button class="ano-col' + (l.m === mesAno ? " sel" : "") + '" data-m="' + l.m + '" aria-label="' + esc(labelMes(l.m)) + '">' +
+    SERIES_ANO.map(([k,,cor]) => { const v = l[k], h = Math.abs(v) / faixa * 100;
+      return '<span class="ano-b"><i style="background:' + cor + ';top:' + (v >= 0 ? pos(v) : pos(0)) + '%;height:' + Math.max(h, v ? 0.6 : 0) + '%"></i></span>'; }).join("") + '</button>').join("");
+  const sel = linhas.find((l) => l.m === mesAno);
+  const fmt = (l) => labelMes(l.m) + (l.parcial ? " (até " + dm(l.ate) + ")" : "") + " · " + SERIES_ANO.map(([k, nome]) => nome + " " + BRL0.format(l[k])).join(" · ");
+  $("ano").innerHTML =
+    '<div class="ano"><div class="ano-y"><span style="top:0">' + mil(yMax) + '</span>' + (yMax > 0 && yMin < 0 ? '<span style="top:' + pos(0) + '%">0</span>' : '') + (yMin < 0 ? '<span style="top:100%">' + mil(yMin) + '</span>' : '<span style="top:100%">0</span>') + '</div>' +
+    '<div class="ano-plot"><div class="ano-zero" style="top:' + pos(0) + '%"></div><div class="ano-cols">' + cols + '</div></div></div>' +
+    '<div class="ano-x">' + linhas.map((l) => '<span>' + MESES[+l.m.slice(5,7)-1] + (l.parcial ? "*" : "") + '</span>').join("") + '</div>' +
+    '<div class="ano-leg">' + SERIES_ANO.map(([,nome,cor]) => '<span><i class="dot" style="background:' + cor + '"></i>' + nome + '</span>').join("") + '</div>' +
+    '<div id="sel-ano">' + (sel ? esc(fmt(sel)) : "Toque em um mês para ver os valores.") + '</div>' +
+    (fora || empAno ? '<button class="chip" id="bt-emp" aria-pressed="' + empAno + '">Incluir empréstimo de sócia' + (fora ? " (" + BRL0.format(fora) + ")" : "") + '</button>' : "") +
+    '<div class="vazio" style="padding:8px 0 0;text-align:left;font-size:12.5px">Lucro líquido da DLP: o investimento já está descontado dele. * mês em andamento, até o último dia com venda. Aporte e retirada em valor positivo.</div>';
+  document.querySelectorAll("#ano .ano-col").forEach((b) => b.addEventListener("click", () => { mesAno = b.dataset.m; graficoAno(); }));
+  const bt = $("bt-emp"); if (bt) bt.addEventListener("click", () => { empAno = !empAno; graficoAno(); });
 }
 
 function mix(dias){
